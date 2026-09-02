@@ -1,0 +1,50 @@
+name: Validación
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    steps:
+      # Las acciones están fijadas por SHA para evitar cambios inesperados.
+      - name: Descargar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.15"
+          enable-cache: true
+
+      - name: Instalar dependencias fijadas
+        run: uv sync --locked --dev
+
+      - name: Revisar Python
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run pytest -q
+
+      - name: Ejecutar el análisis completo
+        run: >-
+          uv run python analyze_isotherms.py datos/Isotermas.xlsx
+          --output /tmp/BET_surface_area_analysis.xlsx
+          --markdown /tmp/BET_surface_area_analysis.md
+
+      - name: Instalar Typst
+        uses: typst-community/setup-typst@40d32bb6ccb235bd7f5164cb47cfd40a5ea3a314 # v5.2.0
+        with:
+          typst-version: "0.15.1"
+
+      - name: Instalar Typstyle
+        run: cargo install typstyle --version 0.15.1 --locked
+
+      - name: Revisar y compilar Typst
+        run: |
+          typstyle --line-width 100 --indent-width 2 --check Informe_area_superficial_BET.typ
+          typst compile Informe_area_superficial_BET.typ /tmp/Informe_area_superficial_BET.pdf
